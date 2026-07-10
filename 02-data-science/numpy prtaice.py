@@ -11,3 +11,6 @@ print("list time:",time.time()-start)
 start=time.time()
 np.sum(arr)
 print("numpy time",time.time()-start)
+
+
+

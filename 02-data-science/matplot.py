@@ -41,3 +41,7 @@ sns.heatmap(numeric_df.corr(),annot= True, cmap='coolwarm',fmt="2f",linewidths=0
 
 plt.title("correlation matrix of features")
 plt.show()
+
+
+# voline plot
+# 
