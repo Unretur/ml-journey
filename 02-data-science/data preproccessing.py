@@ -37,3 +37,4 @@ data = {
 #Writtting the dictonary to a json file 
 with open('json_example.json','w') as file :
      json.dump(data,file,indent=4)
+ 
