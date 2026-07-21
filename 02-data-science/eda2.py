@@ -52,4 +52,7 @@ df.head()
 
 for col in ['sex','smoker','bmi_cat','age_group']:
     print(col, df[col].value_counts() )
-    print()
+   # print()
+
+#Target variable disstribution 
+
