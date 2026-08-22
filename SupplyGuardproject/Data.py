@@ -23,9 +23,9 @@ def load_clean_data(path):
     df["order_month"] = pd.to_datetime(df["order date (DateOrders)"]).dt.month
 
     df = df.drop(columns=[
-        # leakage
+        # leakage — these encode the outcome, not the plan
         "Days for shipping (real)", "Delivery Status", "Late_delivery_risk",
-        "shipping date (DateOrders)",
+        "shipping date (DateOrders)", "Order Status", "Product Name",
         # constants / empty / mostly-missing
         "Customer Email", "Customer Password", "Product Status",
         "Product Description", "Order Zipcode",

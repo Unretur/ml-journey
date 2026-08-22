@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     df = load_clean_data("DataCoSupplyChainDataset.csv")
     X_train, X_test, y_train, y_test = split_by_date(df)
+    print(X_train.select_dtypes(include='object').columns.tolist())
 
     encoder = fit_encoder(X_train)
     joblib.dump(encoder, "encoder.joblib")
