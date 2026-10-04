@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>SupplyGuard AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        background: #0b1f33;
+        color: #f4f7fa;
+        font-family: system-ui, Segoe UI, sans-serif;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse at 20% 10%, rgba(232, 168, 56, 0.14), transparent 42%),
+          radial-gradient(ellipse at 80% 90%, rgba(61, 155, 122, 0.12), transparent 46%),
+          #0b1f33;
+      }
+      .glow {
+        position: absolute;
+        width: 640px;
+        height: 640px;
+        border-radius: 50%;
+        background: rgba(232, 168, 56, 0.16);
+        filter: blur(40px);
+        left: 120px;
+        top: 80px;
+        pointer-events: none;
+      }
+      .clip {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .stack {
+        width: 1480px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .kicker {
+        font-size: 22px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: #e8a838;
+        margin: 0;
+      }
+      .hook {
+        margin: 0;
+        font-size: 84px;
+        font-weight: 620;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+      .hook-two {
+        color: #ffb4a8;
+      }
+      .panel {
+        width: 1180px;
+        background: #122a44;
+        border: 1px solid rgba(244, 247, 250, 0.12);
+        border-radius: 20px;
+        padding: 40px 48px 36px;
+        box-sizing: border-box;
+      }
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 28px;
+      }
+      .route {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 650;
+      }
+      .hint {
+        margin: 0;
+        font-size: 20px;
+        color: #9bb0c4;
+      }
+      .field {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #0b1f33;
+        border-radius: 12px;
+        padding: 18px 22px;
+        margin-bottom: 14px;
+      }
+      .label {
+        font-size: 22px;
+        color: #9bb0c4;
+      }
+      .value {
+        font-size: 26px;
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        justify-content: flex-end;
+        margin: 18px 0 22px;
+      }
+      .btn {
+        background: #e8a838;
+        color: #0b1f33;
+        font-size: 22px;
+        font-weight: 700;
+        padding: 12px 28px;
+        border-radius: 10px;
+      }
+      .json {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 24px;
+        line-height: 1.55;
+        background: #0b1f33;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 0;
+      }
+      .key {
+        color: #e8a838;
+      }
+      .cards {
+        width: 1480px;
+        display: flex;
+        gap: 28px;
+      }
+      .card {
+        flex: 1;
+        background: #122a44;
+        border-radius: 18px;
+        padding: 36px 32px;
+        min-height: 280px;
+        box-sizing: border-box;
+      }
+      .card h3 {
+        margin: 0 0 16px;
+        font-size: 40px;
+        letter-spacing: -0.03em;
+      }
+      .card p {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.35;
+        color: #9bb0c4;
+      }
+      .outro {
+        text-align: center;
+      }
+      .mark {
+        margin: 0;
+        font-size: 88px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+      }
+      .sub {
+        margin: 18px 0 0;
+        font-size: 32px;
+        color: #9bb0c4;
+      }
+      .accent {
+        color: #e8a838;
+      }
+      .cursor {
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        border-radius: 2px 10px 10px 10px;
+        background: #f4f7fa;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        left: 980px;
+        top: 430px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="supplyguard-brag"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-duration="20"
+    >
+      <div class="bg" id="stage-bg"></div>
+      <div class="glow" id="stage-glow"></div>
+
+      <section id="scene-hook" class="clip" data-start="0" data-duration="3.5" data-track-index="0">
+        <div class="stack">
+          <p class="kicker" id="hook-kicker">SupplyGuard AI</p>
+          <h1 class="hook" id="hook-one">The shipment left on time.</h1>
+          <h1 class="hook hook-two" id="hook-two">The calendar didn’t.</h1>
+        </div>
+      </section>
+
+      <section id="scene-predict" class="clip" data-start="3.5" data-duration="9" data-track-index="0">
+        <div class="panel" id="predict-panel">
+          <div class="panel-head">
+            <p class="route">POST /predict</p>
+            <p class="hint">the two fields SHAP actually uses</p>
+          </div>
+          <div class="field" id="field-mode">
+            <span class="label">shipping_mode</span>
+            <span class="value" id="val-mode">First Class</span>
+          </div>
+          <div class="field" id="field-days">
+            <span class="label">days_for_shipment_scheduled</span>
+            <span class="value" id="val-days">1</span>
+          </div>
+          <div class="row">
+            <div class="btn" id="predict-btn">Predict</div>
+          </div>
+          <pre class="json" id="json-out">{
+  "<span class="key">predicted_delay_days</span>": —,
+  "<span class="key">is_late</span>": —
+}</pre>
+        </div>
+        <div class="cursor" id="cursor"></div>
+      </section>
+
+      <section id="scene-facts" class="clip" data-start="12.5" data-duration="4.5" data-track-index="0">
+        <div class="cards">
+          <div class="card" id="card-1">
+            <h3>180,519</h3>
+            <p>DataCo orders in the notebook. The delay target is real days minus scheduled days.</p>
+          </div>
+          <div class="card" id="card-2">
+            <h3>Date split</h3>
+            <p>Train and test are cut by time, not shuffled. Tomorrow does not leak into yesterday.</p>
+          </div>
+          <div class="card" id="card-3">
+            <h3>No leakage</h3>
+            <p>Delivery Status and Late_delivery_risk are dropped before the model ever sees the row.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene-outro" class="clip" data-start="17" data-duration="3" data-track-index="0">
+        <div class="outro">
+          <h1 class="mark" id="logo">SupplyGuard AI</h1>
+          <p class="sub" id="logo-sub">POST /predict → <span class="accent">is_late</span></p>
+        </div>
+      </section>
+
+      <audio
+        id="bg-music"
+        data-start="0"
+        data-duration="20"
+        data-track-index="10"
+        data-volume="0.18"
+        src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"
+      ></audio>
+      <audio id="sfx-drop" data-start="1.635" data-duration="1" data-track-index="11" data-volume="0.55" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="sfx-click" data-start="8.4" data-duration="1" data-track-index="12" data-volume="0.62" src="assets/sfx/ui/mouseclick1.ogg"></audio>
+      <audio id="sfx-bong" data-start="10.908" data-duration="1.4" data-track-index="13" data-volume="0.48" src="assets/sfx/interface/bong_001.ogg"></audio>
+      <audio id="sfx-card1" data-start="12.544" data-duration="1" data-track-index="14" data-volume="0.5" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="sfx-card2" data-start="13.635" data-duration="1" data-track-index="15" data-volume="0.5" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="sfx-card3" data-start="14.726" data-duration="1" data-track-index="16" data-volume="0.5" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="sfx-logo" data-start="17.453" data-duration="1.6" data-track-index="17" data-volume="0.52" src="assets/sfx/impact/impactSoft_medium_000.ogg"></audio>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo("#hook-kicker", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 0.15);
+      tl.fromTo("#hook-one", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.35);
+      tl.fromTo("#hook-two", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 1.635); // beat-locked: 1.635s
+
+      tl.fromTo("#predict-panel", { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 3.55);
+      tl.fromTo("#field-mode", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 4.15);
+      tl.fromTo("#field-days", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 4.7);
+      tl.fromTo("#predict-btn", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 5.2);
+      tl.fromTo("#json-out", { opacity: 0 }, { opacity: 0.35, duration: 0.3 }, 5.4);
+      tl.fromTo("#cursor", { opacity: 0, x: 40, y: 30 }, { opacity: 1, x: 0, y: 0, duration: 0.4, ease: "power2.out" }, 7.35);
+      tl.to("#cursor", { x: 118, y: 8, duration: 0.7, ease: "power2.inOut", overwrite: "auto" }, 7.9);
+      tl.to("#predict-btn", { scale: 0.96, duration: 0.12, yoyo: true, repeat: 1, ease: "power1.inOut" }, 8.4);
+      tl.to("#json-out", { opacity: 1, duration: 0.35 }, 10.908); // beat-locked: 10.908s
+
+      tl.fromTo("#card-1", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 12.544); // beat-grid: card 1 at 12.544s
+      tl.fromTo("#card-2", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 13.635); // beat-grid: card 2 at 13.635s
+      tl.fromTo("#card-3", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 14.726); // beat-grid: card 3 at 14.726s
+
+      tl.fromTo("#logo", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 17.453); // beat-locked: 17.453s
+      tl.fromTo("#logo-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 17.55);
+      tl.fromTo("#stage-glow", { opacity: 0.65 }, { opacity: 1, duration: 20, ease: "none" }, 0);
+
+      window.__timelines["supplyguard-brag"] = tl;
+    </script>
+  </body>
+</html>
