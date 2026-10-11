@@ -67,6 +67,8 @@ def load_clean_data(path: str | Path) -> pd.DataFrame:
         raise ValueError(f"Dataset is missing required columns: {missing}")
 
     dates = pd.to_datetime(df[DATE_COL], errors="coerce")
+    # Store parsed datetimes so chronological sorting is temporal, not lexical.
+    df[DATE_COL] = dates
     real_days = pd.to_numeric(df["Days for shipping (real)"], errors="coerce")
     scheduled_days = pd.to_numeric(
         df["Days for shipment (scheduled)"], errors="coerce"
