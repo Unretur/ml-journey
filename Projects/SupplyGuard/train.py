@@ -116,10 +116,21 @@ def main():
     candidates["xgboost"] = {"validation_mae_days": float(study.best_value)}
     print(f"xgboost validation MAE: {study.best_value:.4f} days")
 
-    # Pick model by validation MAE, then refit that model on the full training
-    # period. Only then evaluate once on the held-out later period.
+    # Evaluate the same median baseline on validation data for fair model
+    # selection. Do not select a complex model if it fails to beat baseline.
+    validation_baseline = DummyRegressor(strategy="median")
+    validation_baseline.fit(np.zeros((len(y_fit), 1)), y_fit)
+    validation_baseline_mae = mean_absolute_error(
+        y_valid, validation_baseline.predict(np.zeros((len(y_valid), 1)))
+    )
     candidate_maes = {k: v["validation_mae_days"] for k, v in candidates.items() if "validation_mae_days" in v}
+    candidate_maes["median_baseline"] = float(validation_baseline_mae)
     winner_name = min(candidate_maes, key=candidate_maes.get)
+    if winner_name == "median_baseline":
+        raise RuntimeError(
+            "No trained model beat the median baseline on chronological validation. "
+            "Do not publish a model until the feature set/model improves."
+        )
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
