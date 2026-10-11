@@ -116,9 +116,9 @@ def predict(shipment: ShipmentInput):
     return {
         "predicted_delay_days": round(predicted_delay, 3),
         "predicted_status": (
-            "late" if predicted_delay > 0.0 else
-            "on_schedule" if abs(predicted_delay) < 0.5 else
-            "early"
+            "late" if predicted_delay >= 0.5 else
+            "early" if predicted_delay <= -0.5 else
+            "near_schedule"
         ),
         "target_definition": "actual shipping days - scheduled shipping days",
         "note": "Historical model estimate, not a guaranteed delivery outcome.",
