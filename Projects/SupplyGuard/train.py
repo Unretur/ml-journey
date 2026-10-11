@@ -1,86 +1,177 @@
+"""Train and select SupplyGuard delay regressors without tuning on the test set."""
+from __future__ import annotations
 
-"""
-SupplyGuard AI — train.py
-
-Trains a RandomForest baseline and a tuned XGBoost model, evaluates both
-on the date-split test set, logs everything to MLflow, and saves whichever
-model wins as the final model.
-"""
+import argparse
+import json
+from pathlib import Path
 
 import joblib
 import mlflow
+import numpy as np
 import optuna
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.dummy import DummyRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor, ExtraTreesRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
 
 from Data import load_clean_data, split_by_date
-from features import fit_encoder, apply_encoder
+from features import build_preprocessor, validate_features
 
 
-def evaluate(model, X_test, y_test, name):
-    preds = model.predict(X_test)
-    mae = mean_absolute_error(y_test, preds)
-    rmse = mean_squared_error(y_test, preds) ** 0.5
-    print(f"{name} -> MAE: {mae:.3f} days, RMSE: {rmse:.3f} days")
-    return mae, rmse
-
-
-def optuna_objective(trial, X_train, y_train, X_test, y_test):
-    params = {
-        "n_estimators": trial.suggest_int("n_estimators", 100, 400),
-        "max_depth": trial.suggest_int("max_depth", 3, 10),
-        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
-        "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+def metrics(y_true, predictions):
+    return {
+        "mae_days": float(mean_absolute_error(y_true, predictions)),
+        "rmse_days": float(np.sqrt(mean_squared_error(y_true, predictions))),
+        "r2": float(r2_score(y_true, predictions)),
     }
-    model = XGBRegressor(**params, random_state=42)
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
-    return mean_absolute_error(y_test, preds)
+
+
+def chronological_validation(X, y, validation_fraction=0.2):
+    split = int(len(X) * (1 - validation_fraction))
+    if split < 1 or split >= len(X):
+        raise ValueError("Not enough training rows for chronological validation.")
+    return X.iloc[:split], X.iloc[split:], y.iloc[:split], y.iloc[split:]
+
+
+def optuna_objective(trial, X_train, y_train, X_valid, y_valid, seed):
+    params = {
+        "n_estimators": trial.suggest_int("n_estimators", 250, 700),
+        "max_depth": trial.suggest_int("max_depth", 2, 8),
+        "learning_rate": trial.suggest_float("learning_rate", 0.015, 0.15, log=True),
+        "subsample": trial.suggest_float("subsample", 0.7, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.7, 1.0),
+        "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+        "reg_lambda": trial.suggest_float("reg_lambda", 0.1, 10.0, log=True),
+        "n_jobs": -1,
+        "random_state": seed,
+        "objective": "reg:squarederror",
+        "tree_method": "hist",
+    }
+    preprocessor = build_preprocessor()
+    Xt = preprocessor.fit_transform(X_train, y_train)
+    Xv = preprocessor.transform(X_valid)
+    model = XGBRegressor(**params)
+    model.fit(Xt, y_train, verbose=False)
+    return mean_absolute_error(y_valid, model.predict(Xv))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", default="data/DataCoSupplyChainDataset.csv")
+    parser.add_argument("--trials", type=int, default=25)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output-dir", default="artifacts")
+    parser.add_argument("--tracking-uri", default="file:./mlruns")
+    args = parser.parse_args()
+    if args.trials < 1:
+        parser.error("--trials must be at least 1")
+
+    frame = load_clean_data(args.data)
+    X_train, X_test, y_train, y_test = split_by_date(frame)
+    X_train, X_test = validate_features(X_train), validate_features(X_test)
+    X_fit, X_valid, y_fit, y_valid = chronological_validation(X_train, y_train)
+
+    mlflow.set_tracking_uri(args.tracking_uri)
+    mlflow.set_experiment("supplyguard")
+
+    candidates = {}
+    with mlflow.start_run(run_name="median_baseline"):
+        dummy = DummyRegressor(strategy="median")
+        dummy.fit(np.zeros((len(y_train), 1)), y_train)
+        baseline = metrics(y_test, dummy.predict(np.zeros((len(y_test), 1))))
+        mlflow.log_metrics({f"test_{k}": v for k, v in baseline.items()})
+        mlflow.log_param("model", "DummyRegressor_median")
+        candidates["median_baseline"] = baseline
+    print("Median baseline (chronological holdout):", json.dumps(baseline))
+
+    # Validate several complementary tree models using the same earlier
+    # validation window. The final holdout remains untouched until selection.
+    for name, model in {
+        "random_forest": RandomForestRegressor(
+            n_estimators=400, min_samples_leaf=2, max_features=0.8,
+            n_jobs=-1, random_state=args.seed
+        ),
+        "extra_trees": ExtraTreesRegressor(
+            n_estimators=400, min_samples_leaf=2, max_features=0.8,
+            n_jobs=-1, random_state=args.seed
+        ),
+        "hist_gradient_boosting": HistGradientBoostingRegressor(
+            max_iter=250, learning_rate=0.06, l2_regularization=1.0,
+            random_state=args.seed
+        ),
+    }.items():
+        prep = build_preprocessor()
+        Xfit = prep.fit_transform(X_fit, y_fit)
+        Xvalid = prep.transform(X_valid)
+        model.fit(Xfit, y_fit)
+        score = mean_absolute_error(y_valid, model.predict(Xvalid))
+        candidates[name] = {"validation_mae_days": float(score)}
+        print(f"{name} validation MAE: {score:.4f} days")
+
+    study = optuna.create_study(direction="minimize", sampler=optuna.samplers.TPESampler(seed=args.seed))
+    study.optimize(
+        lambda trial: optuna_objective(trial, X_fit, y_fit, X_valid, y_valid, args.seed),
+        n_trials=args.trials,
+    )
+    candidates["xgboost"] = {"validation_mae_days": float(study.best_value)}
+    print(f"xgboost validation MAE: {study.best_value:.4f} days")
+
+    # Pick model by validation MAE, then refit that model on the full training
+    # period. Only then evaluate once on the held-out later period.
+    candidate_maes = {k: v["validation_mae_days"] for k, v in candidates.items() if "validation_mae_days" in v}
+    winner_name = min(candidate_maes, key=candidate_maes.get)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    preprocessor = build_preprocessor()
+    Xtr = preprocessor.fit_transform(X_train, y_train)
+    Xte = preprocessor.transform(X_test)
+    if winner_name == "xgboost":
+        model = XGBRegressor(
+            **study.best_params, n_jobs=-1, random_state=args.seed,
+            objective="reg:squarederror", tree_method="hist"
+        )
+    elif winner_name == "random_forest":
+        model = RandomForestRegressor(
+            n_estimators=400, min_samples_leaf=2, max_features=0.8,
+            n_jobs=-1, random_state=args.seed
+        )
+    elif winner_name == "extra_trees":
+        model = ExtraTreesRegressor(
+            n_estimators=400, min_samples_leaf=2, max_features=0.8,
+            n_jobs=-1, random_state=args.seed
+        )
+    else:
+        model = HistGradientBoostingRegressor(
+            max_iter=250, learning_rate=0.06, l2_regularization=1.0,
+            random_state=args.seed
+        )
+    model.fit(Xtr, y_train)
+    test_result = metrics(y_test, model.predict(Xte))
+    print(f"Selected by validation: {winner_name}")
+    print("Final chronological holdout:", json.dumps(test_result, indent=2))
+
+    joblib.dump({"preprocessor": preprocessor, "model": model, "feature_columns": list(X_train.columns),
+                 "target": "delay_days", "selected_model": winner_name},
+                output_dir / "supplyguard_pipeline.joblib")
+    report = {
+        "target": "actual shipping days - scheduled shipping days",
+        "train_rows": int(len(X_train)), "test_rows": int(len(X_test)),
+        "validation_rows": int(len(X_valid)), "selection_metric": "validation MAE",
+        "selected_model": winner_name, "validation_mae_days": candidate_maes[winner_name],
+        "median_baseline_test": baseline, "selected_model_test": test_result,
+        "warning": "Test holdout is for final reporting only. Refrain from tuning against it."
+    }
+    (output_dir / "metrics.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    with mlflow.start_run(run_name=f"selected_{winner_name}"):
+        mlflow.log_param("selected_model", winner_name)
+        mlflow.log_param("trials", args.trials)
+        mlflow.log_param("seed", args.seed)
+        mlflow.log_metrics({f"test_{k}": v for k, v in test_result.items()})
+        mlflow.log_metric("validation_mae_days", candidate_maes[winner_name])
+        mlflow.log_dict(report, "metrics.json")
 
 
 if __name__ == "__main__":
-    mlflow.set_experiment("supplyguard")
-
-    df = load_clean_data("DataCoSupplyChainDataset.csv")
-    X_train, X_test, y_train, y_test = split_by_date(df)
-    print(X_train.select_dtypes(include='object').columns.tolist())
-
-    encoder = fit_encoder(X_train)
-    joblib.dump(encoder, "encoder.joblib")
-    X_train_enc = apply_encoder(X_train, encoder)
-    X_test_enc = apply_encoder(X_test, encoder)
-
-    # --- Baseline: RandomForest, no tuning ---
-    with mlflow.start_run(run_name="random_forest_baseline"):
-        rf_model = RandomForestRegressor(random_state=42)
-        rf_model.fit(X_train_enc, y_train)
-        rf_mae, rf_rmse = evaluate(rf_model, X_test_enc, y_test, "RandomForest")
-        mlflow.log_metric("mae", rf_mae)
-        mlflow.log_metric("rmse", rf_rmse)
-
-    # --- XGBoost, tuned with Optuna ---
-    print("\nTuning XGBoost — this runs 15 trials, may take a few minutes...")
-    study = optuna.create_study(direction="minimize")
-    study.optimize(
-        lambda t: optuna_objective(t, X_train_enc, y_train, X_test_enc, y_test),
-        n_trials=15,
-    )
-
-    with mlflow.start_run(run_name="xgboost_tuned"):
-        xgb_model = XGBRegressor(**study.best_params, random_state=42)
-        xgb_model.fit(X_train_enc, y_train)
-        xgb_mae, xgb_rmse = evaluate(xgb_model, X_test_enc, y_test, "XGBoost")
-        mlflow.log_params(study.best_params)
-        mlflow.log_metric("mae", xgb_mae)
-        mlflow.log_metric("rmse", xgb_rmse)
-
-    # --- Keep the winner ---
-    print(f"\nRandomForest MAE: {rf_mae:.3f} | XGBoost MAE: {xgb_mae:.3f}")
-    if xgb_mae < rf_mae:
-        print("XGBoost wins — saving as final_model.joblib")
-        joblib.dump(xgb_model, "final_model.joblib")
-    else:
-        print("RandomForest wins — saving as final_model.joblib")
-        joblib.dump(rf_model, "final_model.joblib")
-
+    main()
