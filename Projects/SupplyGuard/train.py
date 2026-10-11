@@ -10,7 +10,7 @@ import mlflow
 import numpy as np
 import optuna
 from sklearn.dummy import DummyRegressor
-from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor, ExtraTreesRegressor
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
 
@@ -95,10 +95,6 @@ def main():
             n_estimators=400, min_samples_leaf=2, max_features=0.8,
             n_jobs=-1, random_state=args.seed
         ),
-        "hist_gradient_boosting": HistGradientBoostingRegressor(
-            max_iter=250, learning_rate=0.06, l2_regularization=1.0,
-            random_state=args.seed
-        ),
     }.items():
         prep = build_preprocessor()
         Xfit = prep.fit_transform(X_fit, y_fit)
@@ -153,10 +149,7 @@ def main():
             n_jobs=-1, random_state=args.seed
         )
     else:
-        model = HistGradientBoostingRegressor(
-            max_iter=250, learning_rate=0.06, l2_regularization=1.0,
-            random_state=args.seed
-        )
+        raise RuntimeError(f"Unsupported selected model: {winner_name}")
     model.fit(Xtr, y_train)
     test_result = metrics(y_test, model.predict(Xte))
     print(f"Selected by validation: {winner_name}")
