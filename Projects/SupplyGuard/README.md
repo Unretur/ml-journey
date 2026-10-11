@@ -17,13 +17,20 @@ Positive values mean late delivery; zero means the actual delivery matched the s
 
 ## Run locally
 
-From this directory, create/activate a virtual environment and install the dependencies used in the project (pandas, scikit-learn, xgboost, optuna, mlflow, joblib, fastapi, uvicorn). Then run:
+From the repository root, enter this project directory first. On Windows PowerShell:
 
-```bash
-python train.py --data data/DataCoSupplyChainDataset.csv
+```powershell
+cd Projects/SupplyGuard
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m pytest tests/
+python train.py --data data/DataCoSupplyChainDataset.csv --trials 5
 python evaluate.py --data data/DataCoSupplyChainDataset.csv
 uvicorn api:app --reload
 ```
+
+Start with 5 Optuna trials to validate the pipeline before increasing to 25. Training may take a while on CPU. The training script selects a model on a chronological validation window and refuses to save a model if no candidate beats the median baseline. The API needs the newly generated `artifacts/supplyguard_pipeline.joblib`; the older `final_model.joblib` and `encoder.joblib` files are not compatible with the current API.
 
 Open `http://127.0.0.1:8000/docs` to try the API.
 
