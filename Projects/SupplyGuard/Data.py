@@ -99,6 +99,8 @@ def split_by_date(
     """Return chronological train/test features and target; never shuffle."""
     if not 0 < test_size < 1:
         raise ValueError("test_size must be between 0 and 1.")
+    if len(df) < 3:
+        raise ValueError("Not enough rows for a chronological train/test split (need at least 3).")
     if date_col not in df.columns:
         raise ValueError(f"Date column {date_col!r} is missing.")
     ordered = df.sort_values(date_col).reset_index(drop=True)
