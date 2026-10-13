@@ -54,8 +54,11 @@ def test_request_rejects_unknown_fields():
 def test_request_rejects_nan_or_infinite_values():
     payload = valid_payload()
     payload["product_price"] = float("inf")
-    response = client.post("/predict", json=payload)
-    assert response.status_code == 422
+    # Starlette/httpx rejects non-finite JSON before sending the request. Validate
+    # the Pydantic model directly to test the API's schema-level guard.
+    import pytest
+    with pytest.raises(Exception):
+        ShipmentInput(**payload)
 
 
 def test_health_is_liveness_and_ready_requires_artifact(monkeypatch, tmp_path):
